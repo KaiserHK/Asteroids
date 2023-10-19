@@ -35,10 +35,10 @@ typedef struct Asteroid {
     float size;
 } Asteroid;
 
-typedef struct GameState {
-    int mainMenu;
-    int inGame;
-    int endGame;
+typedef enum GameState {
+    MENU = 0,
+    INGAME,
+    GAMEOVER
 } GameState;
 
 
@@ -69,119 +69,116 @@ int main(void) {
         asteroids[i] = (Asteroid){(Vector2){GetRandomValue(0, screenWidth), 0}, GetRandomValue(1, 5), GetRandomValue(5, 20)};
     }
     
-    GameState game = {1, 0, 0};
+    GameState state = MENU;
     //GAME SETUP END
     
     while (!WindowShouldClose()) {
 
-        if (game.mainMenu) {
-            if (IsKeyDown(KEY_ENTER)) {
-                game.mainMenu = 0;
-                game.inGame = 1;
-            }
+        switch (state) {
 
-            BeginDrawing();
-            ClearBackground(BLACK);
-
-            DrawText("Press Enter to Start", (screenWidth / 2) - MeasureText("Press Enter to Start", 20), (screenHeight / 2), 40, LIGHTGRAY);
-
-            EndDrawing();
-        }
-
-        if (game.inGame) {
-            //UPDATES
-            score += player.speed;
-
-            scrolling += 0.175f;
-            if (scrolling >= screenHeight) scrolling = 0;
-
-            if (IsKeyDown(KEY_D)) player.position.x += player.speed;
-            else if (IsKeyDown(KEY_A)) player.position.x -= player.speed;
-
-            Rectangle playerCollisionBox = {player.position.x - 20, player.position.y - 20, 40, 40};
-            Color playerColor = GREEN;
-            
-            for (int i = 0; i < n_asteroids; i++) {
-                asteroids[i].position.y += asteroids[i].speed;
-
-                if (CheckCollisionCircleRec(asteroids[i].position, asteroids[i].size, playerCollisionBox)) {
-                    hit = 1;
-                    playerColor = RED;
+            case MENU: {
+                if (IsKeyDown(KEY_ENTER)) {
+                    state = INGAME;
                 }
+                BeginDrawing();
+                ClearBackground(BLACK);
+                DrawText("Press Enter to Start", (screenWidth / 2) - MeasureText("Press Enter to Start", 20), (screenHeight / 2), 40, LIGHTGRAY);
+                EndDrawing();
+            } break;
 
-                if (asteroids[i].position.y >= screenHeight) {
-                    asteroids[i].position = (Vector2){GetRandomValue(0, screenWidth), 0};
-                    asteroids[i].speed = GetRandomValue(1, 5);
-                    asteroids[i].size = GetRandomValue(5, 20);
-                }
-            }
-            //END UPDATES
+            case INGAME: {
+                //UPDATES
+                score += player.speed;
 
-            BeginDrawing();
-            ClearBackground(BLACK);
-            
-            //DRAW
+                scrolling += 0.175f;
+                if (scrolling >= screenHeight) scrolling = 0;
 
-            //Draw Background
-            DrawTextureEx(noise_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
-            BeginBlendMode(BLEND_MULTIPLIED);
-            DrawTextureEx(perlin_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
-            EndBlendMode();
+                if (IsKeyDown(KEY_D)) player.position.x += player.speed;
+                else if (IsKeyDown(KEY_A)) player.position.x -= player.speed;
 
-            DrawTextureEx(noise_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
-            BeginBlendMode(BLEND_MULTIPLIED);
-            DrawTextureEx(perlin_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
-            EndBlendMode();
-
-            //Draw Score
-            char scoreString[128];
-            snprintf(scoreString, 128, "Score: %0.2f", score);
-            DrawText(scoreString, 10, 10, 20, WHITE);
-
-            //Draw Player
-            Vector2 v1 = {player.position.x, player.position.y - 20};
-            Vector2 v2 = {player.position.x - 20, player.position.y + 20};
-            Vector2 v3 = {player.position.x + 20, player.position.y + 20};
-            DrawRectangleRec(playerCollisionBox, BLUE);
-            DrawTriangle(v1, v2, v3, playerColor);
-
-            //Draw Asteroids
-            for (int i = 0; i < n_asteroids; i++) {
-                DrawCircle(asteroids[i].position.x, asteroids[i].position.y, asteroids[i].size, DARKBROWN);
-            }
-
-            //Draw End Game
-            if (hit) {
-                game.mainMenu = 0;
-                game.inGame = 0;
-                game.endGame = 1;
-
-                hit = 0;
-                scrolling = 0;
-                score = 0;
-
-                player.position = (Vector2){screenWidth/2, screenHeight - (screenHeight/4)};
-
+                Rectangle playerCollisionBox = {player.position.x - 20, player.position.y - 20, 40, 40};
+                Color playerColor = GREEN;
+                
                 for (int i = 0; i < n_asteroids; i++) {
-                    asteroids[i] = (Asteroid){(Vector2){GetRandomValue(0, screenWidth), 0}, GetRandomValue(1, 5), GetRandomValue(5, 20)};
+                    asteroids[i].position.y += asteroids[i].speed;
+
+                    if (CheckCollisionCircleRec(asteroids[i].position, asteroids[i].size, playerCollisionBox)) {
+                        hit = 1;
+                        playerColor = RED;
+                    }
+
+                    if (asteroids[i].position.y >= screenHeight) {
+                        asteroids[i].position = (Vector2){GetRandomValue(0, screenWidth), 0};
+                        asteroids[i].speed = GetRandomValue(1, 5);
+                        asteroids[i].size = GetRandomValue(5, 20);
+                    }
                 }
-            }
+                //END UPDATES
 
-            //END DRAW
-            EndDrawing();
-        }
+                BeginDrawing();
+                ClearBackground(BLACK);
+                
+                //DRAW
 
-        if (game.endGame) {
-            if (IsKeyDown(KEY_R)) {
-                game.mainMenu = 1;
-                game.inGame = 0;
-                game.endGame = 0;
-            }
+                //Draw Background
+                DrawTextureEx(noise_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
+                BeginBlendMode(BLEND_MULTIPLIED);
+                DrawTextureEx(perlin_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
+                EndBlendMode();
 
-            BeginDrawing();
-            DrawText("GAME OVER", (screenWidth/2) - (MeasureText("GAME OVER", 20)), (screenHeight/2), 40, RED);
-            DrawText("Press R for Main Menu", (screenWidth/2) - (MeasureText("Press R for Main Menu", 10)), (screenHeight/2) + 60, 20, RED);
-            EndDrawing();
+                DrawTextureEx(noise_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
+                BeginBlendMode(BLEND_MULTIPLIED);
+                DrawTextureEx(perlin_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
+                EndBlendMode();
+
+                //Draw Score
+                char scoreString[128];
+                snprintf(scoreString, 128, "Score: %0.2f", score);
+                DrawText(scoreString, 10, 10, 20, WHITE);
+
+                //Draw Player
+                Vector2 v1 = {player.position.x, player.position.y - 20};
+                Vector2 v2 = {player.position.x - 20, player.position.y + 20};
+                Vector2 v3 = {player.position.x + 20, player.position.y + 20};
+                DrawRectangleRec(playerCollisionBox, BLUE);
+                DrawTriangle(v1, v2, v3, playerColor);
+
+                //Draw Asteroids
+                for (int i = 0; i < n_asteroids; i++) {
+                    DrawCircle(asteroids[i].position.x, asteroids[i].position.y, asteroids[i].size, DARKBROWN);
+                }
+
+                //Draw End Game
+                if (hit) {
+                    state = GAMEOVER;
+
+                    hit = 0;
+                    scrolling = 0;
+                    score = 0;
+
+                    player.position = (Vector2){screenWidth/2, screenHeight - (screenHeight/4)};
+
+                    for (int i = 0; i < n_asteroids; i++) {
+                        asteroids[i] = (Asteroid){(Vector2){GetRandomValue(0, screenWidth), 0}, GetRandomValue(1, 5), GetRandomValue(5, 20)};
+                    }
+                }
+
+                //END DRAW
+                EndDrawing();
+            } break;
+
+            case GAMEOVER: {
+                if (IsKeyDown(KEY_R)) {
+                    state = MENU;
+                }
+
+                BeginDrawing();
+                DrawText("GAME OVER", (screenWidth/2) - (MeasureText("GAME OVER", 20)), (screenHeight/2), 40, RED);
+                DrawText("Press R for Main Menu", (screenWidth/2) - (MeasureText("Press R for Main Menu", 10)), (screenHeight/2) + 60, 20, RED);
+                EndDrawing();
+            } break;
+
+            default: break;
         }
     }
     
