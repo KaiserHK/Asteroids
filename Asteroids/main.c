@@ -23,18 +23,18 @@
 #include <stdio.h>
 #include <math.h>
 
-//MACROS
 
-//STRUCTS
-struct Player {
+typedef struct Player {
     Vector2 position;
     float speed;
-};
+} Player;
 
-struct Asteroid {
+typedef struct Asteroid {
     Vector2 position;
     float speed;
-};
+    float size;
+} Asteroid;
+
 
 int main(void) {
     const int screenWidth = 800;
@@ -43,30 +43,50 @@ int main(void) {
     InitWindow(screenWidth, screenHeight, "Asteroids");
     SetTargetFPS(60);
     
-    //CONTENT START
-    float playerSpeed = 4;
-    Vector2 startPosition = {screenWidth/2, screenHeight - (screenHeight/4)};
-    struct Player player = {startPosition, playerSpeed};
+    //GAME SETUP
+    Image white = GenImageWhiteNoise(screenWidth, screenHeight, 0.01f);
+    Image perlin = GenImagePerlinNoise(screenWidth, screenHeight, 50, 50, 4.0f);
+    Texture2D noise_texture = LoadTextureFromImage(white);
+    Texture2D perlin_texture = LoadTextureFromImage(perlin);
+    UnloadImage(white);
+    UnloadImage(perlin);
+    float scrolling = 0.0;
 
-    float asteroidSpeed = 4;
-    float asteroidSize = 20;
-    Vector2 asteroidStartPosition = {screenWidth/2, 0};
-    struct Asteroid asteroid = {asteroidStartPosition, asteroidSpeed};
-    //CONTENT END
+    Player player = {(Vector2){screenWidth/2, screenHeight - (screenHeight/4)}, 4};
+
+    int n_asteroids = 10;
+    Asteroid asteroids[n_asteroids];
+
+    for (int i = 0; i < n_asteroids; i++) {
+        asteroids[i] = (Asteroid){(Vector2){GetRandomValue(0, screenWidth), 0}, GetRandomValue(1, 5), GetRandomValue(5, 20)};
+    }
+    
+    //GAME SETUP END
     
     while (!WindowShouldClose()) {
 
         //UPDATES
-        if (IsKeyDown(KEY_RIGHT)) player.position.x += player.speed;
-        else if (IsKeyDown(KEY_LEFT)) player.position.x -= player.speed;
+        scrolling += 0.175f;
+        if (scrolling >= screenHeight) scrolling = 0;
 
-        asteroid.position.y += asteroid.speed;
-        if (asteroid.position.y >= screenHeight) asteroid.position = (Vector2){GetRandomValue(0, screenWidth), 0};
+        if (IsKeyDown(KEY_D)) player.position.x += player.speed;
+        else if (IsKeyDown(KEY_A)) player.position.x -= player.speed;
 
         Rectangle playerCollisionBox = {player.position.x - 20, player.position.y - 20, 40, 40};
         Color playerColor = GREEN;
-        if (CheckCollisionCircleRec(asteroid.position, asteroidSize, playerCollisionBox)) {
-            playerColor = RED;
+        
+        for (int i = 0; i < n_asteroids; i++) {
+            asteroids[i].position.y += asteroids[i].speed;
+
+            if (CheckCollisionCircleRec(asteroids[i].position, asteroids[i].size, playerCollisionBox)) {
+                playerColor = RED;
+            }
+
+            if (asteroids[i].position.y >= screenHeight) {
+                asteroids[i].position = (Vector2){GetRandomValue(0, screenWidth), 0};
+                asteroids[i].speed = GetRandomValue(1, 5);
+                asteroids[i].size = GetRandomValue(5, 20);
+            }
         }
         //END UPDATES
 
@@ -74,19 +94,36 @@ int main(void) {
         ClearBackground(BLACK);
         
         //DRAW
+
+        //Draw Background
+        DrawTextureEx(noise_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
+        BeginBlendMode(BLEND_MULTIPLIED);
+        DrawTextureEx(perlin_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
+        EndBlendMode();
+
+        DrawTextureEx(noise_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
+        BeginBlendMode(BLEND_MULTIPLIED);
+        DrawTextureEx(perlin_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
+        EndBlendMode();
+
+        //Draw Player
         Vector2 v1 = {player.position.x, player.position.y - 20};
         Vector2 v2 = {player.position.x - 20, player.position.y + 20};
         Vector2 v3 = {player.position.x + 20, player.position.y + 20};
-
         DrawRectangleRec(playerCollisionBox, BLUE);
         DrawTriangle(v1, v2, v3, playerColor);
-        DrawCircle(asteroid.position.x, asteroid.position.y, asteroidSize, DARKBROWN);
-    
+
+        //Draw Asteroids
+        for (int i = 0; i < n_asteroids; i++) {
+            DrawCircle(asteroids[i].position.x, asteroids[i].position.y, asteroids[i].size, DARKBROWN);
+        }
         //END DRAW
 
         EndDrawing();
     }
-
+    
+    UnloadTexture(noise_texture);
+    UnloadTexture(perlin_texture);
     CloseWindow();
 
     return 0;
