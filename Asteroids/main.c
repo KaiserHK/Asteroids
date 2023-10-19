@@ -20,6 +20,7 @@
 ********************************************************************************************/
 
 #include "raylib.h"
+#include <stdio.h>
 #include <math.h>
 
 //MACROS
@@ -27,12 +28,12 @@
 //STRUCTS
 struct Player {
     Vector2 position;
-    Vector2 velocity;
+    float speed;
 };
 
 struct Asteroid {
     Vector2 position;
-    Vector2 velocity;
+    float speed;
 };
 
 int main(void) {
@@ -43,25 +44,30 @@ int main(void) {
     SetTargetFPS(60);
     
     //CONTENT START
-    float playerSize = 1.0;
-    float h = (0.5 * playerSize) * tan((60.0 * (PI / 180.0)));
-
-    int playerSpeed = 4;
+    float playerSpeed = 4;
     Vector2 startPosition = {screenWidth/2, screenHeight - (screenHeight/4)};
-    struct Player player = {startPosition, (Vector2){0, 0}};
+    struct Player player = {startPosition, playerSpeed};
 
-    int asteroidSpeed = 4;
+    float asteroidSpeed = 4;
+    float asteroidSize = 20;
     Vector2 asteroidStartPosition = {screenWidth/2, 0};
-    struct Asteroid asteroid = {asteroidStartPosition, (Vector2){0, asteroidSpeed}};
+    struct Asteroid asteroid = {asteroidStartPosition, asteroidSpeed};
     //CONTENT END
     
     while (!WindowShouldClose()) {
 
         //UPDATES
-        if (IsKeyDown(KEY_RIGHT)) player.position.x += playerSpeed;
-        else if (IsKeyDown(KEY_LEFT)) player.position.x -= playerSpeed;
+        if (IsKeyDown(KEY_RIGHT)) player.position.x += player.speed;
+        else if (IsKeyDown(KEY_LEFT)) player.position.x -= player.speed;
 
-        asteroid.position.y += asteroidSpeed;
+        asteroid.position.y += asteroid.speed;
+        if (asteroid.position.y >= screenHeight) asteroid.position = (Vector2){GetRandomValue(0, screenWidth), 0};
+
+        Rectangle playerCollisionBox = {player.position.x - 20, player.position.y - 20, 40, 40};
+        Color playerColor = GREEN;
+        if (CheckCollisionCircleRec(asteroid.position, asteroidSize, playerCollisionBox)) {
+            playerColor = RED;
+        }
         //END UPDATES
 
         BeginDrawing();
@@ -71,9 +77,11 @@ int main(void) {
         Vector2 v1 = {player.position.x, player.position.y - 20};
         Vector2 v2 = {player.position.x - 20, player.position.y + 20};
         Vector2 v3 = {player.position.x + 20, player.position.y + 20};
-        DrawTriangle(v1, v2, v3, GREEN);
 
-        DrawCircle(asteroid.position.x, asteroid.position.y, 20.0, DARKBROWN);
+        DrawRectangleRec(playerCollisionBox, BLUE);
+        DrawTriangle(v1, v2, v3, playerColor);
+        DrawCircle(asteroid.position.x, asteroid.position.y, asteroidSize, DARKBROWN);
+    
         //END DRAW
 
         EndDrawing();
