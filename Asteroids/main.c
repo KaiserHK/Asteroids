@@ -35,6 +35,12 @@ typedef struct Asteroid {
     float size;
 } Asteroid;
 
+typedef struct GameState {
+    int mainMenu;
+    int inGame;
+    int endGame;
+} GameState;
+
 
 int main(void) {
     const int screenWidth = 800;
@@ -53,6 +59,8 @@ int main(void) {
     float scrolling = 0.0;
 
     Player player = {(Vector2){screenWidth/2, screenHeight - (screenHeight/4)}, 4};
+    float score = 0.0;
+    int hit = 0;
 
     int n_asteroids = 10;
     Asteroid asteroids[n_asteroids];
@@ -63,9 +71,11 @@ int main(void) {
     
     //GAME SETUP END
     
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && !hit) {
 
         //UPDATES
+        score += player.speed;
+
         scrolling += 0.175f;
         if (scrolling >= screenHeight) scrolling = 0;
 
@@ -79,6 +89,7 @@ int main(void) {
             asteroids[i].position.y += asteroids[i].speed;
 
             if (CheckCollisionCircleRec(asteroids[i].position, asteroids[i].size, playerCollisionBox)) {
+                hit = 1;
                 playerColor = RED;
             }
 
@@ -106,6 +117,11 @@ int main(void) {
         DrawTextureEx(perlin_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
         EndBlendMode();
 
+        //Draw Score
+        char scoreString[128];
+        snprintf(scoreString, 128, "Score: %0.2f", score);
+        DrawText(scoreString, 10, 10, 20, WHITE);
+
         //Draw Player
         Vector2 v1 = {player.position.x, player.position.y - 20};
         Vector2 v2 = {player.position.x - 20, player.position.y + 20};
@@ -117,6 +133,9 @@ int main(void) {
         for (int i = 0; i < n_asteroids; i++) {
             DrawCircle(asteroids[i].position.x, asteroids[i].position.y, asteroids[i].size, DARKBROWN);
         }
+
+        //Draw End Game
+        if (hit) DrawText("GAME OVER", (screenWidth/2) - (MeasureText("GAME OVER", 20)/2), (screenHeight/2), 40, RED);
         //END DRAW
 
         EndDrawing();
