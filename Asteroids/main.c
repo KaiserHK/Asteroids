@@ -142,6 +142,9 @@ int main(void) {
                 if (IsKeyDown(KEY_D)) player.position.x += player.speed;
                 else if (IsKeyDown(KEY_A)) player.position.x -= player.speed;
 
+                if (player.position.x >= screenWidth) player.position.x = screenWidth;
+                else if (player.position.x <= 0) player.position.x = 0;
+
                 Vector2 v1 = {player.position.x, player.position.y - 20};
                 Vector2 v2 = {player.position.x - 20, player.position.y + 20};
                 Vector2 v3 = {player.position.x + 20, player.position.y + 20};
@@ -167,7 +170,7 @@ int main(void) {
                         hit = 1;
                         playerColor = RED;
                     }
-                    
+
                     if (asteroids[i].position.y >= screenHeight) {
                         asteroids[i].position = (Vector2){GetRandomValue(0, screenWidth), 0};
                         asteroids[i].speed = GetRandomValue(1, 5);
@@ -198,7 +201,6 @@ int main(void) {
                 DrawText(scoreString, 10, 10, 20, WHITE);
 
                 //Draw Player
-                DrawRectangleRec(playerCollisionBox, BLUE);
                 DrawTriangle(v1, v2, v3, playerColor);
 
                 //Draw Asteroids
