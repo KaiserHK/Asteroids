@@ -24,6 +24,9 @@
 #include <math.h>
 
 
+#define SCOREPATH "score.txt"
+
+
 typedef struct Player {
     Vector2 position;
     float speed;
@@ -37,9 +40,33 @@ typedef struct Asteroid {
 
 typedef enum GameState {
     MENU = 0,
+    SCOREBOARD,
     INGAME,
     GAMEOVER
 } GameState;
+
+
+int saveScore(float score) {
+    FILE *file = fopen(SCOREPATH, "w");
+    if (file == NULL) {
+        TraceLog(LOG_ERROR, "FILE WAS NOT OPENED DURING SAVE");
+        return 1;
+    }
+    fprintf(file, "%0.2f", score);
+    fclose(file);
+    return 0;
+}
+
+float loadScore() {
+    FILE *file = fopen(SCOREPATH, "r");
+    if (file == NULL) {
+        TraceLog(LOG_ERROR, "FILE WAS NOT OPENED DURING LOAD");
+    }
+    float score = 0.0;
+    fscanf(file, "%f", &score);
+    fclose(file);
+    return score;
+}
 
 
 int main(void) {
@@ -70,6 +97,9 @@ int main(void) {
     }
     
     GameState state = MENU;
+
+    float storedScore = 0.0;
+    int hasStoredScoreBeenReadFromFile = 0;
     //GAME SETUP END
     
     while (!WindowShouldClose()) {
@@ -77,12 +107,28 @@ int main(void) {
         switch (state) {
 
             case MENU: {
-                if (IsKeyDown(KEY_ENTER)) {
-                    state = INGAME;
-                }
+                if (IsKeyDown(KEY_ENTER)) state = INGAME;
+                if (IsKeyDown(KEY_S)) state = SCOREBOARD;
                 BeginDrawing();
                 ClearBackground(BLACK);
                 DrawText("Press Enter to Start", (screenWidth / 2) - MeasureText("Press Enter to Start", 20), (screenHeight / 2), 40, LIGHTGRAY);
+                EndDrawing();
+            } break;
+            
+            case SCOREBOARD: {
+                if (!hasStoredScoreBeenReadFromFile) {
+                    storedScore = loadScore();
+                    hasStoredScoreBeenReadFromFile = 1;
+                }
+                if (IsKeyDown(KEY_R)) {
+                    state = MENU;
+                    hasStoredScoreBeenReadFromFile = 0;
+                }
+                BeginDrawing();
+                ClearBackground(BLACK);
+                char score[128];
+                snprintf(score, 128, "LAST SCORE: %0.2f", storedScore);
+                DrawText(score, (screenWidth/2) - MeasureText(score, 20), (screenHeight/2), 40, LIGHTGRAY);
                 EndDrawing();
             } break;
 
@@ -96,17 +142,32 @@ int main(void) {
                 if (IsKeyDown(KEY_D)) player.position.x += player.speed;
                 else if (IsKeyDown(KEY_A)) player.position.x -= player.speed;
 
+                Vector2 v1 = {player.position.x, player.position.y - 20};
+                Vector2 v2 = {player.position.x - 20, player.position.y + 20};
+                Vector2 v3 = {player.position.x + 20, player.position.y + 20};
+
                 Rectangle playerCollisionBox = {player.position.x - 20, player.position.y - 20, 40, 40};
                 Color playerColor = GREEN;
                 
                 for (int i = 0; i < n_asteroids; i++) {
                     asteroids[i].position.y += asteroids[i].speed;
+                    double theta = atan(((asteroids[i].position.y - player.position.y)/(asteroids[i].position.x - player.position.x)));
+                    double dx = asteroids[i].size * cos(theta);
+                    double dy = asteroids[i].size * sin(theta);
 
-                    if (CheckCollisionCircleRec(asteroids[i].position, asteroids[i].size, playerCollisionBox)) {
+                    if (asteroids[i].position.x < player.position.x) {
+                        dx = -1 * dx;
+                        dy = -1 * dy;
+                    }
+
+                    double x3 = asteroids[i].position.x - dx;
+                    double y3 = asteroids[i].position.y - dy;
+
+                    if (CheckCollisionPointTriangle((Vector2){x3, y3}, v1, v2, v3)) {
                         hit = 1;
                         playerColor = RED;
                     }
-
+                    
                     if (asteroids[i].position.y >= screenHeight) {
                         asteroids[i].position = (Vector2){GetRandomValue(0, screenWidth), 0};
                         asteroids[i].speed = GetRandomValue(1, 5);
@@ -137,9 +198,6 @@ int main(void) {
                 DrawText(scoreString, 10, 10, 20, WHITE);
 
                 //Draw Player
-                Vector2 v1 = {player.position.x, player.position.y - 20};
-                Vector2 v2 = {player.position.x - 20, player.position.y + 20};
-                Vector2 v3 = {player.position.x + 20, player.position.y + 20};
                 DrawRectangleRec(playerCollisionBox, BLUE);
                 DrawTriangle(v1, v2, v3, playerColor);
 
@@ -151,6 +209,8 @@ int main(void) {
                 //Draw End Game
                 if (hit) {
                     state = GAMEOVER;
+
+                    saveScore(score);
 
                     hit = 0;
                     scrolling = 0;
