@@ -25,11 +25,14 @@
 
 
 #define SCOREPATH "score.txt"
+#define BUFSIZE 128
+#define NAMESIZE 3
 
 
 typedef struct Player {
     Vector2 position;
     float speed;
+    char name[NAMESIZE];
 } Player;
 
 typedef struct Asteroid {
@@ -42,38 +45,52 @@ typedef enum GameState {
     MENU = 0,
     SCOREBOARD,
     INGAME,
-    GAMEOVER
+    GAMEOVER,
+    NEWHIGHSCORE
 } GameState;
 
+typedef struct Scoreboard {
+    int ranks[5];
+    float scores[5];
+    char names[5][NAMESIZE + 1];
+} Scoreboard;
 
-int saveScore(float score) {
+
+int loadHighScores(Scoreboard *scoreboard) {
+    FILE *file = fopen(SCOREPATH, "r");
+    if (file != NULL) {
+        char buf[BUFSIZE];
+        int counter = 0;
+        while (fgets(buf, sizeof(buf), file) && counter < 5) {
+            sscanf(buf, "%d %f %s", &scoreboard->ranks[counter], &scoreboard->scores[counter], scoreboard->names[counter]);
+            counter++;
+        }
+        
+    } else {
+        TraceLog(LOG_ERROR, "FILE WAS NOT OPENED DURING LOAD");
+    }
+    fclose(file);
+    return 0;
+}
+
+int saveHighScores(Scoreboard *scoreboard) {
     FILE *file = fopen(SCOREPATH, "w");
     if (file == NULL) {
         TraceLog(LOG_ERROR, "FILE WAS NOT OPENED DURING SAVE");
         return 1;
     }
-    fprintf(file, "%0.2f", score);
+    for (int i = 0; i < 5; i++) {
+        fprintf(file, "%d %0.2f %s\n", scoreboard->ranks[i], scoreboard->scores[i], scoreboard->names[i]);
+    }
     fclose(file);
     return 0;
 }
-
-float loadScore() {
-    FILE *file = fopen(SCOREPATH, "r");
-    if (file == NULL) {
-        TraceLog(LOG_ERROR, "FILE WAS NOT OPENED DURING LOAD");
-    }
-    float score = 0.0;
-    fscanf(file, "%f", &score);
-    fclose(file);
-    return score;
-}
-
 
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 450;
 
-    InitWindow(screenWidth, screenHeight, "Asteroids");
+    InitWindow(screenWidth, screenHeight, "AstroRocks");
     SetTargetFPS(60);
     
     //GAME SETUP
@@ -88,6 +105,7 @@ int main(void) {
     Player player = {(Vector2){screenWidth/2, screenHeight - (screenHeight/4)}, 4};
     float score = 0.0;
     int hit = 0;
+    int playerNameLetterIndex = 0;
 
     int n_asteroids = 10;
     Asteroid asteroids[n_asteroids];
@@ -97,8 +115,7 @@ int main(void) {
     }
     
     GameState state = MENU;
-
-    float storedScore = 0.0;
+    Scoreboard scoreboard = {0};
     int hasStoredScoreBeenReadFromFile = 0;
     //GAME SETUP END
     
@@ -117,7 +134,7 @@ int main(void) {
             
             case SCOREBOARD: {
                 if (!hasStoredScoreBeenReadFromFile) {
-                    storedScore = loadScore();
+                    loadHighScores(&scoreboard);
                     hasStoredScoreBeenReadFromFile = 1;
                 }
                 if (IsKeyDown(KEY_R)) {
@@ -126,9 +143,13 @@ int main(void) {
                 }
                 BeginDrawing();
                 ClearBackground(BLACK);
-                char score[128];
-                snprintf(score, 128, "LAST SCORE: %0.2f", storedScore);
-                DrawText(score, (screenWidth/2) - MeasureText(score, 20), (screenHeight/2), 40, LIGHTGRAY);
+                DrawText("High Scores", (screenWidth/2) - MeasureText("High Scores", 20), (screenHeight/4) - 80, 40, LIGHTGRAY);
+                int bufsize = 128;
+                for (int i = 0; i < 5; i++) {
+                    char buf[bufsize];
+                    snprintf(buf, bufsize, "%d %0.2f %s", scoreboard.ranks[i], scoreboard.scores[i], scoreboard.names[i]);
+                    DrawText(buf, (screenWidth/2) - MeasureText(buf, 20), (screenHeight/4) + (i * 40), 40, LIGHTGRAY);
+                }
                 EndDrawing();
             } break;
 
@@ -149,7 +170,6 @@ int main(void) {
                 Vector2 v2 = {player.position.x - 20, player.position.y + 20};
                 Vector2 v3 = {player.position.x + 20, player.position.y + 20};
 
-                Rectangle playerCollisionBox = {player.position.x - 20, player.position.y - 20, 40, 40};
                 Color playerColor = GREEN;
                 
                 for (int i = 0; i < n_asteroids; i++) {
@@ -208,24 +228,69 @@ int main(void) {
                     DrawCircle(asteroids[i].position.x, asteroids[i].position.y, asteroids[i].size, DARKBROWN);
                 }
 
-                //Draw End Game
+                EndDrawing();
+
                 if (hit) {
                     state = GAMEOVER;
-
-                    saveScore(score);
+                    loadHighScores(&scoreboard);
+                    for (int i = 0; i < 5; i++) {
+                        if (score >= scoreboard.scores[i]) {
+                            state = NEWHIGHSCORE;
+                        }
+                    }
 
                     hit = 0;
                     scrolling = 0;
-                    score = 0;
-
                     player.position = (Vector2){screenWidth/2, screenHeight - (screenHeight/4)};
-
                     for (int i = 0; i < n_asteroids; i++) {
                         asteroids[i] = (Asteroid){(Vector2){GetRandomValue(0, screenWidth), 0}, GetRandomValue(1, 5), GetRandomValue(5, 20)};
                     }
                 }
+            } break;
 
-                //END DRAW
+            case NEWHIGHSCORE: {
+                int key = GetCharPressed();
+                while (key > 0) {
+                    if ((key >= 32) && (key <= 125) && (playerNameLetterIndex < NAMESIZE)) {
+                        player.name[playerNameLetterIndex] = (char)key;
+                        player.name[playerNameLetterIndex + 1] = '\0';
+                        playerNameLetterIndex++;
+                    }
+                    key = GetCharPressed();
+                }
+
+                if (IsKeyPressed(KEY_BACKSPACE) && (playerNameLetterIndex >= 0)) {
+                    player.name[playerNameLetterIndex] = '\0';
+                    playerNameLetterIndex--;
+                } else if (IsKeyPressed(KEY_ENTER)) {
+                    loadHighScores(&scoreboard);
+                    for (int i = 0; i < 5; i++) {
+                        if (score >= scoreboard.scores[i]) {
+                            for (int j = 3; j >= i; j--) {
+                                scoreboard.scores[j + 1] = scoreboard.scores[j];
+                                for (int k = 0; k < NAMESIZE; k++) {
+                                    scoreboard.names[j + 1][k] = scoreboard.names[j][k];
+                                }
+                            }
+                            scoreboard.scores[i] = score;
+                            for (int k = 0; k < NAMESIZE; k++) {
+                                scoreboard.names[i][k] = player.name[k];
+                            }
+                            break;
+                        }
+                    }
+                    saveHighScores(&scoreboard);
+
+                    score = 0;
+                    state = SCOREBOARD;
+                }
+
+                char buf[BUFSIZE];
+                snprintf(buf, sizeof(buf), "Enter Initials: %s", player.name);
+                BeginDrawing();
+                ClearBackground(BLACK);
+                DrawText("New High Score!", (screenWidth/2) - (MeasureText("New High Score", 20)), (screenHeight/4), 40, GOLD);
+                DrawText(buf, (screenWidth/2) - (MeasureText(buf, 20)), (screenHeight/2), 40, LIGHTGRAY);
                 EndDrawing();
             } break;
 
