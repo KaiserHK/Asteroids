@@ -102,6 +102,12 @@ int main(void) {
     UnloadImage(perlin);
     float scrolling = 0.0;
 
+    Image playerImage = LoadImage("AstroRocks Spaceship V2.png");
+    Texture2D playerTexture = LoadTextureFromImage(playerImage);
+    UnloadImage(playerImage);
+    float playerTextureScale = 1.35;
+    Rectangle frameRectangle = {0, 0, (float)playerTexture.width/2, (float)playerTexture.height/2};
+    Rectangle destRectangle = {0, 0, ((float)playerTexture.width/2) * playerTextureScale, ((float)playerTexture.height/2) * playerTextureScale};
     Player player = {(Vector2){screenWidth/2, screenHeight - (screenHeight/4)}, 4};
     float score = 0.0;
     int hit = 0;
@@ -160,11 +166,22 @@ int main(void) {
                 scrolling += 0.175f;
                 if (scrolling >= screenHeight) scrolling = 0;
 
-                if (IsKeyDown(KEY_D)) player.position.x += player.speed;
-                else if (IsKeyDown(KEY_A)) player.position.x -= player.speed;
+                frameRectangle.x = 0;
+                frameRectangle.y = 0;
+                if (IsKeyDown(KEY_D)) {
+                    player.position.x += player.speed;
+                    frameRectangle.y = playerTexture.height/2;
+                }
+                else if (IsKeyDown(KEY_A)) {
+                    player.position.x -= player.speed;
+                    frameRectangle.x = playerTexture.width/2;
+                }
 
                 if (player.position.x >= screenWidth) player.position.x = screenWidth;
                 else if (player.position.x <= 0) player.position.x = 0;
+
+                destRectangle.x = player.position.x - (destRectangle.width / 2);
+                destRectangle.y = player.position.y - (destRectangle.height / 2);
 
                 Vector2 v1 = {player.position.x, player.position.y - 20};
                 Vector2 v2 = {player.position.x - 20, player.position.y + 20};
@@ -222,6 +239,9 @@ int main(void) {
 
                 //Draw Player
                 DrawTriangle(v1, v2, v3, playerColor);
+                //DrawTextureEx(playerTexture, (Vector2){player.position.x - (16 * playerTextureScale), player.position.y - (16 * playerTextureScale)}, 0.0, playerTextureScale, WHITE);
+                //DrawTextureRec(playerTexture, frameRectangle, (Vector2){player.position.x - 16, player.position.y - 16}, WHITE);
+                DrawTexturePro(playerTexture, frameRectangle, destRectangle, (Vector2){0, 0}, 0, WHITE);
 
                 //Draw Asteroids
                 for (int i = 0; i < n_asteroids; i++) {
@@ -311,6 +331,7 @@ int main(void) {
     
     UnloadTexture(noise_texture);
     UnloadTexture(perlin_texture);
+    UnloadTexture(playerTexture);
     CloseWindow();
 
     return 0;
