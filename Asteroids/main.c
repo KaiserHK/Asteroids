@@ -142,8 +142,8 @@ int main(void) {
                 if (IsKeyDown(KEY_S)) state = SCOREBOARD;
                 BeginDrawing();
                 ClearBackground(BLACK);
-                DrawText("Press 'Enter' to Start", (screenWidth / 2) - MeasureText("Press 'Enter' to Start", 20), (screenHeight / 2) - 40, 40, LIGHTGRAY);
-                DrawText("Press 'S' for Scoreboard", (screenWidth / 2) - MeasureText("Press 'S' for Scoreboard", 20), (screenHeight / 2) + 40, 40, LIGHTGRAY);
+                DrawText("Press [Enter] to Start", (screenWidth / 2) - MeasureText("Press [Enter] to Start", 20), (screenHeight / 2) - 40, 40, LIGHTGRAY);
+                DrawText("Press [S] for Scoreboard", (screenWidth / 2) - MeasureText("Press [S] for Scoreboard", 20), (screenHeight / 2) + 40, 40, LIGHTGRAY);
                 EndDrawing();
             } break;
             
