@@ -56,6 +56,7 @@ typedef struct Scoreboard {
 } Scoreboard;
 
 
+
 int loadHighScores(Scoreboard *scoreboard) {
     FILE *file = fopen(SCOREPATH, "r");
     if (file != NULL) {
@@ -65,10 +66,12 @@ int loadHighScores(Scoreboard *scoreboard) {
             sscanf(buf, "%d %f %s", &scoreboard->ranks[counter], &scoreboard->scores[counter], scoreboard->names[counter]);
             counter++;
         }
-        
     } else {
         TraceLog(LOG_ERROR, "FILE WAS NOT OPENED DURING LOAD");
+        fclose(file);
+        return 1;
     }
+
     fclose(file);
     return 0;
 }
@@ -77,14 +80,18 @@ int saveHighScores(Scoreboard *scoreboard) {
     FILE *file = fopen(SCOREPATH, "w");
     if (file == NULL) {
         TraceLog(LOG_ERROR, "FILE WAS NOT OPENED DURING SAVE");
+        fclose(file);
         return 1;
     }
+
     for (int i = 0; i < 5; i++) {
         fprintf(file, "%d %0.2f %s\n", scoreboard->ranks[i], scoreboard->scores[i], scoreboard->names[i]);
     }
+
     fclose(file);
     return 0;
 }
+
 
 int main(void) {
     const int screenWidth = 800;
@@ -93,29 +100,21 @@ int main(void) {
     InitWindow(screenWidth, screenHeight, "AstroRocks");
     SetTargetFPS(60);
     
-    //GAME SETUP
     Image white = GenImageWhiteNoise(screenWidth, screenHeight, 0.01f);
     Image perlin = GenImagePerlinNoise(screenWidth, screenHeight, 50, 50, 4.0f);
     Texture2D noise_texture = LoadTextureFromImage(white);
     Texture2D perlin_texture = LoadTextureFromImage(perlin);
     UnloadImage(white);
     UnloadImage(perlin);
-    float scrolling = 0.0;
 
     Image playerImage = LoadImage("AstroRocks Spaceship V2.png");
     Texture2D playerTexture = LoadTextureFromImage(playerImage);
     UnloadImage(playerImage);
-    float playerTextureScale = 1.35;
-    Rectangle frameRectangle = {0, 0, (float)playerTexture.width/2, (float)playerTexture.height/2};
-    Rectangle destRectangle = {0, 0, ((float)playerTexture.width/2) * playerTextureScale, ((float)playerTexture.height/2) * playerTextureScale};
+
     Player player = {(Vector2){screenWidth/2, screenHeight - (screenHeight/4)}, 4};
-    float score = 0.0;
-    int hit = 0;
-    int playerNameLetterIndex = 0;
 
     int n_asteroids = 10;
     Asteroid asteroids[n_asteroids];
-
     for (int i = 0; i < n_asteroids; i++) {
         asteroids[i] = (Asteroid){(Vector2){GetRandomValue(0, screenWidth), 0}, GetRandomValue(1, 5), GetRandomValue(5, 20)};
     }
@@ -123,6 +122,15 @@ int main(void) {
     GameState state = MENU;
     Scoreboard scoreboard = {0};
     int hasStoredScoreBeenReadFromFile = 0;
+    float score = 0.0f;
+
+    float backgroundScrollingPosition = 0.0f;
+
+    float playerTextureScale = 1.35f;
+    Rectangle frameRectangle = {0, 0, (float)playerTexture.width/2, (float)playerTexture.height/2};
+    Rectangle destRectangle = {0, 0, ((float)playerTexture.width/2) * playerTextureScale, ((float)playerTexture.height/2) * playerTextureScale};
+    int hit = 0;
+    int playerNameLetterIndex = 0;
     //GAME SETUP END
     
     while (!WindowShouldClose()) {
@@ -134,7 +142,8 @@ int main(void) {
                 if (IsKeyDown(KEY_S)) state = SCOREBOARD;
                 BeginDrawing();
                 ClearBackground(BLACK);
-                DrawText("Press Enter to Start", (screenWidth / 2) - MeasureText("Press Enter to Start", 20), (screenHeight / 2), 40, LIGHTGRAY);
+                DrawText("Press 'Enter' to Start", (screenWidth / 2) - MeasureText("Press 'Enter' to Start", 20), (screenHeight / 2) - 40, 40, LIGHTGRAY);
+                DrawText("Press 'S' for Scoreboard", (screenWidth / 2) - MeasureText("Press 'S' for Scoreboard", 20), (screenHeight / 2) + 40, 40, LIGHTGRAY);
                 EndDrawing();
             } break;
             
@@ -143,36 +152,39 @@ int main(void) {
                     loadHighScores(&scoreboard);
                     hasStoredScoreBeenReadFromFile = 1;
                 }
-                if (IsKeyDown(KEY_R)) {
+
+                if (IsKeyDown(KEY_B)) {
                     state = MENU;
                     hasStoredScoreBeenReadFromFile = 0;
                 }
+
                 BeginDrawing();
                 ClearBackground(BLACK);
                 DrawText("High Scores", (screenWidth/2) - MeasureText("High Scores", 20), (screenHeight/4) - 80, 40, LIGHTGRAY);
+
                 int bufsize = 128;
                 for (int i = 0; i < 5; i++) {
                     char buf[bufsize];
                     snprintf(buf, bufsize, "%d %0.2f %s", scoreboard.ranks[i], scoreboard.scores[i], scoreboard.names[i]);
                     DrawText(buf, (screenWidth/2) - MeasureText(buf, 20), (screenHeight/4) + (i * 40), 40, LIGHTGRAY);
                 }
+
+                DrawText("<- [B]ack", 0, screenHeight - 20, 20, LIGHTGRAY);
                 EndDrawing();
             } break;
 
             case INGAME: {
-                //UPDATES
                 score += player.speed;
 
-                scrolling += 0.175f;
-                if (scrolling >= screenHeight) scrolling = 0;
+                backgroundScrollingPosition += 0.175f;
+                if (backgroundScrollingPosition >= screenHeight) backgroundScrollingPosition = 0;
 
                 frameRectangle.x = 0;
                 frameRectangle.y = 0;
                 if (IsKeyDown(KEY_D)) {
                     player.position.x += player.speed;
                     frameRectangle.y = playerTexture.height/2;
-                }
-                else if (IsKeyDown(KEY_A)) {
+                } else if (IsKeyDown(KEY_A)) {
                     player.position.x -= player.speed;
                     frameRectangle.x = playerTexture.width/2;
                 }
@@ -186,8 +198,6 @@ int main(void) {
                 Vector2 v1 = {player.position.x, player.position.y - 20};
                 Vector2 v2 = {player.position.x - 20, player.position.y + 20};
                 Vector2 v3 = {player.position.x + 20, player.position.y + 20};
-
-                Color playerColor = GREEN;
                 
                 for (int i = 0; i < n_asteroids; i++) {
                     asteroids[i].position.y += asteroids[i].speed;
@@ -205,7 +215,6 @@ int main(void) {
 
                     if (CheckCollisionPointTriangle((Vector2){x3, y3}, v1, v2, v3)) {
                         hit = 1;
-                        playerColor = RED;
                     }
 
                     if (asteroids[i].position.y >= screenHeight) {
@@ -214,36 +223,26 @@ int main(void) {
                         asteroids[i].size = GetRandomValue(5, 20);
                     }
                 }
-                //END UPDATES
 
                 BeginDrawing();
                 ClearBackground(BLACK);
                 
-                //DRAW
-
-                //Draw Background
-                DrawTextureEx(noise_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
+                DrawTextureEx(noise_texture, (Vector2){0, backgroundScrollingPosition}, 0.0f, 1.0f, WHITE);
                 BeginBlendMode(BLEND_MULTIPLIED);
-                DrawTextureEx(perlin_texture, (Vector2){0, scrolling}, 0.0, 1.0f, WHITE);
+                DrawTextureEx(perlin_texture, (Vector2){0, backgroundScrollingPosition}, 0.0f, 1.0f, WHITE);
                 EndBlendMode();
 
-                DrawTextureEx(noise_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
+                DrawTextureEx(noise_texture, (Vector2){0, (-1 * screenHeight) + backgroundScrollingPosition}, 0.0f, 1.0f, WHITE);
                 BeginBlendMode(BLEND_MULTIPLIED);
-                DrawTextureEx(perlin_texture, (Vector2){0, (-1 * screenHeight) + scrolling}, 0.0, 1.0f, WHITE);
+                DrawTextureEx(perlin_texture, (Vector2){0, (-1 * screenHeight) + backgroundScrollingPosition}, 0.0f, 1.0f, WHITE);
                 EndBlendMode();
 
-                //Draw Score
                 char scoreString[128];
                 snprintf(scoreString, 128, "Score: %0.2f", score);
                 DrawText(scoreString, 10, 10, 20, WHITE);
 
-                //Draw Player
-                DrawTriangle(v1, v2, v3, playerColor);
-                //DrawTextureEx(playerTexture, (Vector2){player.position.x - (16 * playerTextureScale), player.position.y - (16 * playerTextureScale)}, 0.0, playerTextureScale, WHITE);
-                //DrawTextureRec(playerTexture, frameRectangle, (Vector2){player.position.x - 16, player.position.y - 16}, WHITE);
                 DrawTexturePro(playerTexture, frameRectangle, destRectangle, (Vector2){0, 0}, 0, WHITE);
 
-                //Draw Asteroids
                 for (int i = 0; i < n_asteroids; i++) {
                     DrawCircle(asteroids[i].position.x, asteroids[i].position.y, asteroids[i].size, DARKBROWN);
                 }
@@ -252,6 +251,7 @@ int main(void) {
 
                 if (hit) {
                     state = GAMEOVER;
+
                     loadHighScores(&scoreboard);
                     for (int i = 0; i < 5; i++) {
                         if (score >= scoreboard.scores[i]) {
@@ -260,7 +260,7 @@ int main(void) {
                     }
 
                     hit = 0;
-                    scrolling = 0;
+                    backgroundScrollingPosition = 0;
                     player.position = (Vector2){screenWidth/2, screenHeight - (screenHeight/4)};
                     for (int i = 0; i < n_asteroids; i++) {
                         asteroids[i] = (Asteroid){(Vector2){GetRandomValue(0, screenWidth), 0}, GetRandomValue(1, 5), GetRandomValue(5, 20)};
@@ -299,6 +299,7 @@ int main(void) {
                             break;
                         }
                     }
+
                     saveHighScores(&scoreboard);
 
                     score = 0;
@@ -307,6 +308,7 @@ int main(void) {
 
                 char buf[BUFSIZE];
                 snprintf(buf, sizeof(buf), "Enter Initials: %s", player.name);
+
                 BeginDrawing();
                 ClearBackground(BLACK);
                 DrawText("New High Score!", (screenWidth/2) - (MeasureText("New High Score", 20)), (screenHeight/4), 40, GOLD);
@@ -315,13 +317,13 @@ int main(void) {
             } break;
 
             case GAMEOVER: {
-                if (IsKeyDown(KEY_R)) {
+                if (IsKeyDown(KEY_B)) {
                     state = MENU;
                 }
 
                 BeginDrawing();
                 DrawText("GAME OVER", (screenWidth/2) - (MeasureText("GAME OVER", 20)), (screenHeight/2), 40, RED);
-                DrawText("Press R for Main Menu", (screenWidth/2) - (MeasureText("Press R for Main Menu", 10)), (screenHeight/2) + 60, 20, RED);
+                DrawText("[B]ack to Main Menu", (screenWidth/2) - (MeasureText("[B]ack to Main Menu", 10)), (screenHeight/2) + 60, 20, RED);
                 EndDrawing();
             } break;
 
