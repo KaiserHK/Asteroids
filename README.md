@@ -1,10 +1,13 @@
 # Asteroids
- Asteroids game built in C using raylib.
+ This repo contains an Asteroids like game built in C99 using the raylib library.
 
-# Prerequisites
-You must have the raylib library, the GCC compiler, and Visual Studio Code.
+# Technologies
+The following are the required technologies in order to compile and run this application:
+- The GCC compiler
+- Raylib library
+- Visual Studio Code
 
-# How to Compile and Play
- 1. Download the repo.
+# How to Install and Run
+ 1. Clone/download the Asteroids repo.
  2. Open the project up in Visual Studio Code.
  3. Press F5 to build and run.
